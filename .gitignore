@@ -1,0 +1,36 @@
+# ---- Terraform ----
+# Local state — NEVER commit (can contain secrets like the DB password in plaintext)
+*.tfstate
+*.tfstate.*
+# Provider plugins / working dir (large, machine-specific)
+**/.terraform/*
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+# Variable files — may hold secrets. Commit a redacted *.example.tfvars instead.
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+# Override files (local-only tweaks)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored — it SHOULD be committed
+# so anyone cloning gets the exact same provider versions.
+
+# ---- Secrets / credentials ----
+.env
+.env.*
+*.pem
+*.key
+*.p12
+credentials
+aws-credentials*
+
+# ---- OS / editor ----
+.DS_Store
+.idea/
+.vscode/
+*.swp
