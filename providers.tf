@@ -10,5 +10,15 @@ terraform {
 }
 
 provider "aws" {
-  region = "ap-south-1"
+  region = var.aws_region
+
+  # Applied to every resource this provider creates.
+  # Resource-level `tags` merge on top; the merged result shows up in `tags_all`.
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+    }
+  }
 }

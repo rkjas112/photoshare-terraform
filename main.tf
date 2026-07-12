@@ -1,41 +1,43 @@
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+locals {
+  azs = slice(data.aws_availability_zones.available.names, 0, var.az_count)
+
+  public_subnets  = zipmap(local.azs, var.public_subnet_cidrs)
+  private_subnets = zipmap(local.azs, var.private_subnet_cidrs)
+}
+
 resource "aws_vpc" "photoshare" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block = var.vpc_cidr
 
-  tags = { Name = "photoshare-vpc"
-  }
+  tags = { Name = "${var.project_name}-vpc" }
 }
 
-resource "aws_subnet" "public_1" {
-  cidr_block        = "10.0.1.0/24"
+resource "aws_subnet" "public" {
+  for_each = local.public_subnets
+
+  vpc_id                  = aws_vpc.photoshare.id
+  cidr_block              = each.value
+  availability_zone       = each.key
+  map_public_ip_on_launch = true
+
+  tags = { Name = "${var.project_name}-public-${each.key}" }
+}
+
+resource "aws_subnet" "private" {
+  for_each = local.private_subnets
+
   vpc_id            = aws_vpc.photoshare.id
-  availability_zone = "ap-south-1a"
-  tags = { Name = "Public Subnet 1"
-  }
+  cidr_block        = each.value
+  availability_zone = each.key
+
+  tags = { Name = "${var.project_name}-private-${each.key}" }
 }
 
-resource "aws_subnet" "private_1" {
-  cidr_block        = "10.0.2.0/24"
-  vpc_id            = aws_vpc.photoshare.id
-  availability_zone = "ap-south-1a"
-  tags = { Name = "Private Subnet 1"
-  }
-}
 
-resource "aws_subnet" "public_2" {
-  cidr_block        = "10.0.3.0/24"
-  vpc_id            = aws_vpc.photoshare.id
-  availability_zone = "ap-south-1b"
-  tags = { Name = "Public Subnet 2"
-  }
-}
 
-resource "aws_subnet" "private_2" {
-  cidr_block        = "10.0.4.0/24"
-  vpc_id            = aws_vpc.photoshare.id
-  availability_zone = "ap-south-1b"
-  tags = { Name = "Private Subnet 2"
-  }
-}
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.photoshare.id
@@ -49,16 +51,63 @@ resource "aws_route_table" "public" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-  tags = { Name = "public-rt"
+  tags = { Name = "${var.project_name}-public-rt"
   }
 }
 
-resource "aws_route_table_association" "public_1" {
-  subnet_id      = aws_subnet.public_1.id
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.photoshare.id
+  tags = { Name = "${var.project_name}-private-rt"
+  }
+
+}
+
+resource "aws_route_table_association" "public" {
+  for_each = aws_subnet.public
+
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "public_2" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public.id
+resource "aws_route_table_association" "private" {
+  for_each       = aws_subnet.private
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.private.id
 }
+
+# --- moved blocks: rename existing state addresses, no destroy/create ---
+moved {
+  from = aws_subnet.public_1
+  to   = aws_subnet.public["ap-south-1a"]
+}
+
+moved {
+  from = aws_subnet.public_2
+  to   = aws_subnet.public["ap-south-1b"]
+}
+
+moved {
+  from = aws_route_table_association.public_1
+  to   = aws_route_table_association.public["ap-south-1a"]
+}
+
+moved {
+  from = aws_route_table_association.public_2
+  to   = aws_route_table_association.public["ap-south-1b"]
+}
+
+moved {
+  from = aws_subnet.private_1
+  to   = aws_subnet.private["ap-south-1a"]
+}
+
+moved {
+  from = aws_subnet.private_2
+  to   = aws_subnet.private["ap-south-1b"]
+}
+
+
+
+
+
