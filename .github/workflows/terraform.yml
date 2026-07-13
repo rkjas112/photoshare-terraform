@@ -1,0 +1,46 @@
+name: terraform-ci
+
+# Runs on every pull request and push to main.
+# CI only: format, validate, and security-scan. It never runs `apply` — infra
+# changes go through a reviewed plan, not an automatic deploy.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    name: fmt + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      # -backend=false: validate the config without needing AWS credentials
+      # or access to the real S3 state backend.
+      - name: terraform init
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        run: terraform validate
+
+  security:
+    name: tfsec security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Scans the Terraform for misconfigurations (public buckets, open SGs,
+      # unencrypted storage, ...). soft_fail reports findings without failing
+      # the build — some findings here are intentional trade-offs (see README).
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: true
